@@ -1,7 +1,29 @@
 import { serve } from "https://deno.land/std/http/server.ts";
+
+class ModResponse {
+  #statusCode = 500;
+  #body: any;
+
+  set statusCode(statusCode: number) {
+    this.#statusCode = statusCode;
+  }
+
+  get statusCode(): number {
+    return this.#statusCode;
+  }
+
+  set body(body: any) {
+    this.#body = body;
+  }
+
+  get body() {
+    return this.#body;
+  }
+}
+
 type Handler = (
   request: Request,
-  response: Response,
+  response: ModResponse,
   next?: () => void,
 ) => Promise<Response>;
 
@@ -13,7 +35,7 @@ type Layer = {
 
 const stack: Array<Layer> = [];
 
-const chain = (request: Request, response: Response) => {
+const chain = (request: Request, response: ModResponse) => {
   let nextIndex = 0;
   const next = () => {
     if (nextIndex < stack.length) {
@@ -34,10 +56,9 @@ const chain = (request: Request, response: Response) => {
 };
 
 serve((request) => {
-  const response = new Response();
-  response.body = "";
-  chain(request, response);
-  return response;
+  const modResponse = new ModResponse();
+  chain(request, modResponse);
+  return new Response(modResponse.body, { status: modResponse.statusCode });
 });
 
 // NOTE: i'm gonna need custom Request and Response objects
