@@ -10,3 +10,7 @@
 - [ ] What are the bad things (the problems) about expressjs and how to solve or
       work around these things?
 - [ ] ...
+
+## To read
+
+- [ ] https://medium.com/codex/the-design-behind-express-b1da569c7e43
