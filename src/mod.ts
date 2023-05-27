@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 
-class ModResponse {
+type PlatformResponse = globalThis.Response;
+
+class Response {
   #statusCode = 500;
   #body: any;
 
@@ -19,13 +21,30 @@ class ModResponse {
   get body() {
     return this.#body;
   }
+
+  toPlatformResponse() {
+    // converts the response to the platform response
+    // but, how?
+  }
 }
 
 type Handler = (
   request: Request,
-  response: ModResponse,
+  response: Response,
   next?: () => void,
 ) => Promise<Response>;
+
+function matchLayer(layer: Layer, url: string, method: string): boolean {
+  if (layer.path === "*" && layer.method === "*") {
+    return true;
+  }
+  const pattern = new URLPattern({ pathname: layer.path });
+
+  const matchPath = !!pattern.exec(url);
+  const matchMethod = layer.method === method || method === "*";
+
+  return matchPath && matchMethod;
+}
 
 type Layer = {
   path: string;
@@ -35,18 +54,15 @@ type Layer = {
 
 const stack: Array<Layer> = [];
 
-const chain = (request: Request, response: ModResponse) => {
+const chain = (request: Request, response: Response) => {
   let nextIndex = 0;
   const next = () => {
     if (nextIndex < stack.length) {
-      const nextHandler = stack[nextIndex++];
-      const { path, method, handler } = nextHandler;
-      const { pathname } = new URL(request.url, "http://localhost");
+      const nextLayer = stack[nextIndex++];
       if (
-        (pathname === path || path === "*") &&
-        (request.method === method || method === "*")
+        matchLayer(nextLayer, request.url, request.method)
       ) {
-        handler(request, response, next);
+        nextLayer.handler(request, response, next);
       } else {
         next();
       }
@@ -56,7 +72,7 @@ const chain = (request: Request, response: ModResponse) => {
 };
 
 serve((request) => {
-  const modResponse = new ModResponse();
+  const modResponse = new Response();
   chain(request, modResponse);
   return new Response(modResponse.body, { status: modResponse.statusCode });
 });
