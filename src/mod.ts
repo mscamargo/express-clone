@@ -1,5 +1,3 @@
-import { serve } from "https://deno.land/std/http/server.ts";
-
 type PlatformResponse = globalThis.Response;
 
 class Response {
@@ -70,11 +68,5 @@ const chain = (request: Request, response: Response) => {
   };
   return next();
 };
-
-serve((request) => {
-  const modResponse = new Response();
-  chain(request, modResponse);
-  return new Response(modResponse.body, { status: modResponse.statusCode });
-});
 
 // NOTE: i'm gonna need custom Request and Response objects
