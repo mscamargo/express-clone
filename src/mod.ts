@@ -1,6 +1,4 @@
-type PlatformResponse = globalThis.Response;
-
-class Response {
+export class Response {
   #statusCode = 500;
   #body: any;
 
@@ -26,14 +24,18 @@ class Response {
   }
 }
 
-type Handler = (
+type NextFunction = () => Promise<void>;
+type MiddlewareHandler = (
   request: Request,
   response: Response,
-  next?: () => void,
-) => Promise<Response>;
+  next: NextFunction,
+) => Promise<void>;
+type RouteHandler = (request: Request, response: Response) => Promise<void>;
+
+type Handler = MiddlewareHandler | RouteHandler;
 
 function matchLayer(layer: Layer, url: string, method: string): boolean {
-  if (layer.path === "*" && layer.method === "*") {
+  if (layer.path === "*" && layer.method === "ALL") {
     return true;
   }
   const pattern = new URLPattern({ pathname: layer.path });
@@ -44,29 +46,32 @@ function matchLayer(layer: Layer, url: string, method: string): boolean {
   return matchPath && matchMethod;
 }
 
-type Layer = {
+export type HttpMethod = "ALL" | "GET" | "POST";
+
+export type Layer = {
   path: string;
-  method: string;
+  method: HttpMethod;
   handler: Handler;
 };
 
 const stack: Array<Layer> = [];
 
-const chain = (request: Request, response: Response) => {
-  let nextIndex = 0;
-  const next = () => {
-    if (nextIndex < stack.length) {
-      const nextLayer = stack[nextIndex++];
-      if (
-        matchLayer(nextLayer, request.url, request.method)
-      ) {
-        nextLayer.handler(request, response, next);
-      } else {
-        next();
+export const chain =
+  (stack: Layer[]) => async (request: Request, response: Response) => {
+    let nextIndex = 0;
+    const next = async () => {
+      if (nextIndex < stack.length) {
+        const nextLayer = stack[nextIndex++];
+        if (
+          matchLayer(nextLayer, request.url, request.method)
+        ) {
+          await nextLayer.handler(request, response, next);
+        } else {
+          await next();
+        }
       }
-    }
+    };
+    return await next();
   };
-  return next();
-};
 
 // NOTE: i'm gonna need custom Request and Response objects
