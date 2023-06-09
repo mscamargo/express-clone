@@ -1,27 +1,61 @@
-import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
-import { listen, stop } from "./mod.ts";
+import { serve } from "https://deno.land/std/http/server.ts";
+import { assertEquals, assertExists, assertInstanceOf } from "https://deno.land/std/testing/asserts.ts";
+import { handler } from "./mod.ts";
 
-Deno.test("Should handle Http Methods", async (t) => {
-  await listen(3000)
-  await t.step("GET", async () => {
-    const url = "http://localhost:3000/ping";
-    const response = await fetch(url, { method: "GET" });
-    const body = await response.text();
-    assertEquals(body, "ping: GET");
+Deno.test("/todo (POST)", async () => {
+  const abortController = new AbortController();
+  const serverPromise = serve(handler, {
+    signal: abortController.signal,
   });
 
-  await t.step("POST", async () => {
-    const url = "http://localhost:3000/ping";
-    const response = await fetch(url, { method: "POST" });
-    const body = await response.text();
-    assertEquals(body, "ping: POST");
+  const url = "http://localhost:8000/todo";
+
+
+  const requestBody = {
+    title: "",
+    description: "",
+  }
+
+  const request = new Request(url, {
+    method: "POST",
+    headers: {
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify(requestBody)
   });
 
-  await t.step("PUT", async () => {
-    const url = "http://localhost:3000/ping";
-    const response = await fetch(url, { method: "PUT" });
-    const body = await response.text();
-    assertEquals(body, "ping: PUT");
+  const response = await fetch(request);
+
+  const responseBody = await response.json();
+  assertEquals(response.status, 201)
+  assertExists(responseBody.id)
+  assertEquals(responseBody.title, requestBody.title)
+  assertEquals(responseBody.description, requestBody.description)
+  abortController.abort();
+  await serverPromise;
+});
+
+Deno.test("/todo (GET)", async () => {
+  const abortController = new AbortController();
+  const serverPromise = serve(handler, {
+    signal: abortController.signal,
   });
-  stop()
+
+  const url = "http://localhost:8000/todo";
+
+  const request = new Request(url, {
+    method: "GET",
+    headers: {
+      'content-type': 'application/json'
+    }
+  });
+
+  const response = await fetch(request);
+
+
+  const responseBody = await response.json();
+  assertEquals(response.status, 200)
+  assertInstanceOf(responseBody, Array)
+  abortController.abort();
+  await serverPromise;
 });
